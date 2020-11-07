@@ -27,7 +27,35 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct HSL_T{
+	uint8_t hue;
+	uint8_t sat;
+	uint8_t lit;
+}HSL_T;
 
+typedef struct HSL_STEP_T{
+	int8_t hue;
+	int8_t sat;
+	int8_t lit;
+}HSL_STEP_T;
+
+typedef struct RGB_T{
+	uint8_t red;
+	uint8_t grn;
+	uint8_t blu;
+}RGB_T;
+
+typedef struct BUG_T{
+	uint8_t length;
+	uint8_t position;
+	RGB_T colour;
+	uint8_t direction; // 1 = forwards; 0 = backwards
+	uint8_t framesPerMovement;
+	uint8_t frameCount;
+	uint16_t lifetime;
+	uint16_t lifetimecount;
+	struct BUG_T *next;
+}BUG_T;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -41,12 +69,16 @@
 
 /* Private variables ---------------------------------------------------------*/
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim6;
 DMA_HandleTypeDef hdma_tim2_ch1;
 
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+volatile uint8_t frameflag = 0;
+volatile uint8_t newBugFlag = 0;
+BUG_T *headBug;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -55,8 +87,16 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 uint32_t hsl_to_rgb(uint8_t h, uint8_t s, uint8_t l);
+void send_uart(char *string);
+void send_uart_num(uint16_t num);
+void UpdateBug(BUG_T *bug);
+void UpdateAllBugs();
+void AddBug(uint8_t length, uint8_t position, RGB_T colour, uint8_t direction, uint8_t framesPerMovement, uint8_t lifetime);
+void AddBugs(uint8_t totalNewBugs);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -95,9 +135,17 @@ int main(void)
   MX_DMA_Init();
   MX_TIM2_Init();
   MX_USART2_UART_Init();
+  MX_TIM3_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start_IT(&htim3); // 30Hz frame rate
+  HAL_TIM_Base_Start_IT(&htim6); // 0.07Hz new bug rate
   uint8_t angle = 0;
   const uint8_t angle_difference = 11;
+
+  send_uart("Booting up... \n\r");
+  HAL_Delay(2000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -107,18 +155,19 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	for(uint8_t i = 0; i < 8 /* Change that to your amount of LEDs */; i++) {
-		// Calculate color
-		uint32_t rgb_color = hsl_to_rgb(angle + (i * angle_difference), 255, 127);
-		// Set color
-		led_set_RGB(i, (rgb_color >> 16) & 0xFF, (rgb_color >> 8) & 0xFF, rgb_color & 0xFF);
+
+	if(newBugFlag == 1){
+		newBugFlag = 0;
+		AddBugs(0);
+		send_uart("Adding bugs\r\n");
 	}
-	// Write to LED
-	++angle;
-	led_render();
-	// Some delay
-	HAL_Delay(10);
+	if(frameflag == 1){
+		frameflag = 0;
+		led_set_all_RGB(0,0,0);
+		UpdateAllBugs(headBug);
+		led_render();
 	}
+  }
   /* USER CODE END 3 */
 }
 
@@ -235,6 +284,92 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 1600;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 1000;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_OC_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_TIMING;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_OC_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 10000;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 20000;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -312,6 +447,17 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+{
+	if(htim->Instance==TIM3){
+		frameflag = 1;
+	}
+	if(htim->Instance==TIM6){
+		newBugFlag = 1;
+	}
+}
+
 // Fast hsl2rgb algorithm: https://stackoverflow.com/questions/13105185/fast-algorithm-for-rgb-hsl-conversion
 uint32_t hsl_to_rgb(uint8_t h, uint8_t s, uint8_t l) {
 	if(l == 0) return 0;
@@ -341,6 +487,146 @@ uint32_t hsl_to_rgb(uint8_t h, uint8_t s, uint8_t l) {
 
 	return (((uint32_t)r + m) << 16) | (((uint32_t)g + m) << 8) | ((uint32_t)b + m);
 }
+
+void UpdateBug(BUG_T *bug){
+
+	bug->frameCount++;
+	if(bug->frameCount > bug->framesPerMovement){
+		bug->frameCount = 0;
+		if(bug->direction == 1){
+			bug->position++;
+			if(bug->position > NUM_PIXELS-1){
+				bug->position = 0;
+			}
+		}
+		else{
+			bug->position--;
+			if(bug->position == 0xFF){
+				bug->position = NUM_PIXELS;
+			}
+		}
+		bug->lifetimecount++;
+		if(bug->lifetimecount > bug->lifetime){
+			bug->lifetimecount = bug->lifetime-1;
+			if(bug->length != 0 ){
+				bug->length--;
+			}
+		}
+	}
+
+	for(uint8_t i=0; i<bug->length; i++){
+		uint8_t temp = bug->position;
+		temp += i;
+		if(temp > NUM_PIXELS-1){
+			temp = temp-NUM_PIXELS;
+		}
+		led_set_RGB(temp, bug->colour.red, bug->colour.grn, bug->colour.blu);
+	}
+}
+
+void AddBug(uint8_t length, uint8_t position, RGB_T colour, uint8_t direction,
+		uint8_t framesPerMovement, uint8_t lifetime){
+
+	BUG_T* newBug = (BUG_T*)malloc(sizeof(BUG_T));
+	if(newBug != NULL){
+		newBug->length = length;
+		newBug->position = position;
+		newBug->colour = colour;
+		newBug->direction = direction;
+		newBug->framesPerMovement = framesPerMovement;
+		newBug->frameCount = 0;
+		newBug->lifetime = lifetime;
+		newBug->lifetimecount = 0;
+		newBug->next = headBug;
+
+		headBug = newBug;
+	}
+}
+
+void AddBugs(uint8_t totalNewBugs){
+
+	if(totalNewBugs == 0)
+		totalNewBugs = 5+rand()%7;
+
+	RGB_T tempcolour = {0xFF, 0x35, 0x30};
+	uint8_t startposition = rand()%(NUM_PIXELS-1);
+
+	for(uint8_t i=0; i< totalNewBugs; i++){
+		// length, position, colour, direction, speed0(high is low), lifetime
+		if(i%2 == 0)
+			AddBug(2+rand()%5, startposition, tempcolour, 0, (1+rand()%5), (2+rand()%15));
+		else
+			AddBug(2+rand()%5, startposition, tempcolour, 1, (1+rand()%5), (2+rand()%15));
+	}
+	send_uart("Bugs added: ");
+	send_uart_num(totalNewBugs);
+}
+
+void UpdateAllBugs(){
+	BUG_T *currentBug = NULL;
+	BUG_T* previousBug = NULL;
+	currentBug = headBug;
+
+	while(currentBug != NULL){
+		UpdateBug(currentBug);
+
+		// if the bug is dead, delete bug and move to the next bug
+		if(currentBug->length == 0){
+
+			if(currentBug == headBug){		// first bug
+				//send_uart("Deleting first bug...\r\n");
+				if(headBug->next != NULL){
+					headBug = headBug->next;
+					free(currentBug);
+					currentBug = headBug;
+				}
+				else{	// only bug
+					//send_uart("Deleting only bug...\r\n");
+					headBug = NULL;
+					free(currentBug);
+					currentBug = NULL;
+				}
+				//send_uart("Deleted first/only bug.\r\n");
+			}
+			else{
+				if(currentBug->next != NULL){ // middle bugs
+					previousBug->next = currentBug->next;
+					free(currentBug);
+					currentBug = previousBug->next;
+				}
+				else{
+					previousBug->next = NULL; // last bug
+					free(currentBug);
+					currentBug = NULL;
+				}
+			}
+		}
+
+		// if the bug is not dead, move to the next bug.
+		else{
+			if(currentBug->next != NULL){	// check for last bug in list
+				previousBug = currentBug;
+				currentBug = currentBug->next;
+			}
+			else{
+				currentBug = NULL;
+			}
+		}
+	}
+}
+
+void send_uart (char *string){
+	uint8_t len = strlen (string);
+	HAL_UART_Transmit(&huart2, (uint8_t *) string, len, HAL_MAX_DELAY);  // transmit in blocking mode
+}
+
+void send_uart_num (uint16_t num){
+	char string[5] = {"\0"};
+	sprintf(string, "%d\r\n", num);
+	uint8_t len = strlen (string);
+	HAL_UART_Transmit(&huart2, (uint8_t *) string, len, HAL_MAX_DELAY);  // transmit in blocking mode
+}
+
 /* USER CODE END 4 */
 
 /**

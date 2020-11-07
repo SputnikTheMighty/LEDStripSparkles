@@ -7,7 +7,7 @@
 // LED parameters
 #define NUM_BPP (3) // WS2812B
 //#define NUM_BPP (4) // SK6812
-#define NUM_PIXELS (8)
+#define NUM_PIXELS (60)
 #define NUM_BYTES (NUM_BPP * NUM_PIXELS)
 
 #include <stdint.h>

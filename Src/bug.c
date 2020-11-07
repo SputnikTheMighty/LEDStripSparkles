@@ -7,7 +7,12 @@
 
 #include "bug.h"
 
+RGB_T colourPalette[4] = {HOTPINK, LIMEGREEN, ORANGE, MINTBLUE};
+HSL_T hslColourPalette[4] = {HOTPINK_HSL, LIMEGREEN_HSL, ORANGE_HSL, MINTBLUE_HSL};
+
 void UpdateBug(BUG_T *bug){
+
+	bug->colour.lit = bug->colour.lit*0.99;
 
 	bug->frameCount++;
 	if(bug->frameCount > bug->framesPerMovement){
@@ -27,6 +32,9 @@ void UpdateBug(BUG_T *bug){
 		bug->lifetimecount++;
 		if(bug->lifetimecount > bug->lifetime){
 			bug->lifetimecount = bug->lifetime-1;
+
+			bug->colour.lit = bug->colour.lit*0.6;
+
 			if(bug->length != 0 ){
 				bug->length--;
 			}
@@ -39,11 +47,11 @@ void UpdateBug(BUG_T *bug){
 		if(temp > NUM_PIXELS-1){
 			temp = temp-NUM_PIXELS;
 		}
-		led_set_RGB(temp, bug->colour.red, bug->colour.grn, bug->colour.blu);
+		SetSingleLED_RGB(temp, ConvertHSL_T(bug->colour.hue, bug->colour.sat, bug->colour.lit));
 	}
 }
 
-void AddBug(BUG_T **localHeadBug, uint8_t length, uint8_t position, RGB_T colour, uint8_t direction,
+void AddBug(BUG_T **localHeadBug, uint8_t length, uint8_t position, HSL_T colour, uint8_t direction,
 		uint8_t framesPerMovement, uint8_t lifetime){
 
 	BUG_T* newBug = (BUG_T*)malloc(sizeof(BUG_T));
@@ -65,17 +73,19 @@ void AddBug(BUG_T **localHeadBug, uint8_t length, uint8_t position, RGB_T colour
 void AddBugs(BUG_T **localHeadBug, uint8_t totalNewBugs){
 
 	if(totalNewBugs == 0)
-		totalNewBugs = 5+rand()%7;
+		totalNewBugs = 5+rand()%20;
 
-	RGB_T tempcolour = {0xFF, 0x35, 0x30};
 	uint8_t startposition = rand()%(NUM_PIXELS-1);
+	uint8_t direction = 0;
 
 	for(uint8_t i=0; i< totalNewBugs; i++){
 		// length, position, colour, direction, speed0(high is low), lifetime
 		if(i%2 == 0)
-			AddBug(localHeadBug, 2+rand()%5, startposition, tempcolour, 0, (1+rand()%5), (2+rand()%15));
+			direction = 0;
 		else
-			AddBug(localHeadBug, 2+rand()%5, startposition, tempcolour, 1, (1+rand()%5), (2+rand()%15));
+			direction = 1;
+
+		AddBug(localHeadBug, 2+rand()%5, startposition, hslColourPalette[rand()%4], direction, (1+rand()%10), (2+rand()%20));
 	}
 	send_uart("Bugs added: ");
 	send_uart_num(totalNewBugs);
@@ -176,5 +186,54 @@ uint32_t hsl_to_rgb(uint8_t h, uint8_t s, uint8_t l) {
 	return (((uint32_t)r + m) << 16) | (((uint32_t)g + m) << 8) | ((uint32_t)b + m);
 }
 
+RGB_T ConvertHSL_T(uint8_t h, uint8_t s, uint8_t l) {
+
+	RGB_T result = {0,0,0};
+	uint8_t  r, g, b, lo, c, x, m;
+	uint16_t h1, l1, H;
+
+	if(l == 0)
+		return result;
+	if(s == 0){
+		result.red = l;
+		result.grn = l;
+		result.blu = l;
+		return result;
+	}
+
+	l1 = l + 1;
+	if (l < 128)    c = ((l1 << 1) * s) >> 8;
+	else            c = (512 - (l1 << 1)) * s >> 8;
+
+	H = h * 6;              // 0 to 1535 (actually 1530)
+	lo = H & 255;           // Low byte  = primary/secondary color mix
+	h1 = lo + 1;
+
+	if ((H & 256) == 0)   x = h1 * c >> 8;          // even sextant, like red to yellow
+	else                  x = (256 - h1) * c >> 8;  // odd sextant, like yellow to green
+
+	m = l - (c >> 1);
+	switch(H >> 8) {       // High byte = sextant of colorwheel
+	 case 0 : r = c; g = x; b = 0; break; // R to Y
+	 case 1 : r = x; g = c; b = 0; break; // Y to G
+	 case 2 : r = 0; g = c; b = x; break; // G to C
+	 case 3 : r = 0; g = x; b = c; break; // C to B
+	 case 4 : r = x; g = 0; b = c; break; // B to M
+	 default: r = c; g = 0; b = x; break; // M to R
+	}
 
 
+	result.red = r + m;
+	result.grn = g + m;
+	result.blu = b + m;
+
+	return result;
+}
+
+void SetSingleLED_RGB(uint8_t LED, RGB_T colour){
+	led_set_RGB(LED, colour.red, colour.grn, colour.blu);
+}
+
+void SetSingleLED_HSL(uint8_t LED, RGB_T colour){
+	led_set_RGB(LED, colour.red, colour.grn, colour.blu);
+}

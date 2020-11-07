@@ -110,7 +110,6 @@ int main(void)
   //const uint8_t angle_difference = 11;
   BUG_T *localHeadBug;
   localHeadBug = NULL;
-  RGB_T hotpink = {0xFF, 0x35, 0x30};
   send_uart("Booting up... \n\r");
   HAL_Delay(2000);
 
@@ -131,7 +130,7 @@ int main(void)
 	}
 	if(frameflag == 1){
 		frameflag = 0;
-		led_set_all_RGB(0,0,0);
+		led_set_all_RGB(0, 0, 0);
 		UpdateAllBugs(&localHeadBug);
 		led_render();
 	}

@@ -7,6 +7,18 @@
 #include "neopixel.h"
 #include "stm32G0xx_hal.h"
 
+#define HOTPINK {255, 53, 48}
+#define LIMEGREEN {150, 202, 45}
+#define ORANGE {255, 129, 10}
+//#define VAPOURWAVEPURPLE {129, 0, 204}
+#define MINTBLUE {54, 95, 99}
+
+#define HOTPINK_HSL {1, 200, 150}
+#define LIMEGREEN_HSL {57, 163, 122}
+#define ORANGE_HSL {21, 255, 66}
+//#define VAPOURWAVEPURPLE {129, 0, 204}
+#define MINTBLUE_HSL {131, 74, 77}
+
 typedef struct HSL_T{
 	uint8_t hue;
 	uint8_t sat;
@@ -28,7 +40,7 @@ typedef struct RGB_T{
 typedef struct BUG_T{
 	uint8_t length;
 	uint8_t position;
-	RGB_T colour;
+	HSL_T colour;
 	uint8_t direction; // 1 = forwards; 0 = backwards
 	uint8_t framesPerMovement;
 	uint8_t frameCount;
@@ -42,8 +54,11 @@ void send_uart(char *string);
 void send_uart_num(uint16_t num);
 void UpdateBug(BUG_T *bug);
 void UpdateAllBugs(BUG_T **localHeadBug);
-void AddBug(BUG_T **localHeadBug, uint8_t length, uint8_t position, RGB_T colour, uint8_t direction, uint8_t framesPerMovement, uint8_t lifetime);
+void AddBug(BUG_T **localHeadBug, uint8_t length, uint8_t position, HSL_T colour, uint8_t direction, uint8_t framesPerMovement, uint8_t lifetime);
 void AddBugs(BUG_T **localHeadBug, uint8_t totalNewBugs);
+void SetSingleLED_RGB(uint8_t LED, RGB_T colour);
+void SetSingleLED_HSL(uint8_t LED, RGB_T colour);
+RGB_T ConvertHSL_T(uint8_t h, uint8_t s, uint8_t l);
 
 extern UART_HandleTypeDef huart2;
 

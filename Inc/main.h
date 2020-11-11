@@ -34,6 +34,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "neopixel.h"
 #include "bug.h"
+#include "LPF.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

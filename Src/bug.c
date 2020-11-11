@@ -7,12 +7,12 @@
 
 #include "bug.h"
 
-RGB_T colourPalette[4] = {HOTPINK, LIMEGREEN, ORANGE, MINTBLUE};
-HSL_T hslColourPalette[4] = {HOTPINK_HSL, LIMEGREEN_HSL, ORANGE_HSL, MINTBLUE_HSL};
+HSL_T hslColourPalette[5] = {GREENYELLOWCRAYOLA, GRANNYSMITHAPPLE, ORCHIDCRAYOLA, CERISE, PRINCETONORANGE};
 
 void UpdateBug(BUG_T *bug){
 
-	bug->colour.lit = bug->colour.lit*0.99;
+	if(bug->length <= 4)
+		bug->colour.lit = bug->colour.lit*0.99;
 
 	bug->frameCount++;
 	if(bug->frameCount > bug->framesPerMovement){
@@ -33,7 +33,7 @@ void UpdateBug(BUG_T *bug){
 		if(bug->lifetimecount > bug->lifetime){
 			bug->lifetimecount = bug->lifetime-1;
 
-			bug->colour.lit = bug->colour.lit*0.6;
+			//bug->colour.lit = bug->colour.lit*0.6;
 
 			if(bug->length != 0 ){
 				bug->length--;
@@ -41,13 +41,23 @@ void UpdateBug(BUG_T *bug){
 		}
 	}
 
+	uint8_t temp_hsl_lit = bug->colour.lit;
 	for(uint8_t i=0; i<bug->length; i++){
 		uint8_t temp = bug->position;
-		temp += i;
-		if(temp > NUM_PIXELS-1){
-			temp = temp-NUM_PIXELS;
+		if(bug->direction == 0){
+			temp += i;
+			if(temp > NUM_PIXELS-1){
+				temp = temp-NUM_PIXELS;
+			}
 		}
-		SetSingleLED_RGB(temp, ConvertHSL_T(bug->colour.hue, bug->colour.sat, bug->colour.lit));
+		else{
+			temp -=i;
+			if(temp > bug->position){
+				temp = NUM_PIXELS-temp;
+			}
+		}
+		SetSingleLED_RGB(temp, ConvertHSL_T(bug->colour.hue, bug->colour.sat, temp_hsl_lit));
+		temp_hsl_lit *= 0.5;
 	}
 }
 
@@ -73,19 +83,17 @@ void AddBug(BUG_T **localHeadBug, uint8_t length, uint8_t position, HSL_T colour
 void AddBugs(BUG_T **localHeadBug, uint8_t totalNewBugs){
 
 	if(totalNewBugs == 0)
-		totalNewBugs = 5+rand()%20;
+		totalNewBugs = 5+rand()%5;
 
 	uint8_t startposition = rand()%(NUM_PIXELS-1);
-	uint8_t direction = 0;
 
 	for(uint8_t i=0; i< totalNewBugs; i++){
-		// length, position, colour, direction, speed0(high is low), lifetime
-		if(i%2 == 0)
-			direction = 0;
-		else
-			direction = 1;
 
-		AddBug(localHeadBug, 2+rand()%5, startposition, hslColourPalette[rand()%4], direction, (1+rand()%10), (2+rand()%20));
+		uint8_t direction = 0;
+		if(i%2 == 0)
+			direction = 1;
+		// length, position, colour, direction, speed0(high is low), lifetime
+		AddBug(localHeadBug, 2+rand()%5, startposition, hslColourPalette[rand()%5], direction, (1+rand()%10), (2+rand()%(totalNewBugs)));
 	}
 	send_uart("Bugs added: ");
 	send_uart_num(totalNewBugs);

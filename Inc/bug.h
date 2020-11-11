@@ -7,17 +7,17 @@
 #include "neopixel.h"
 #include "stm32G0xx_hal.h"
 
-#define HOTPINK {255, 53, 48}
-#define LIMEGREEN {150, 202, 45}
-#define ORANGE {255, 129, 10}
+#define HOTPINK {1, 200, 150}
+#define LIMEGREEN {57, 163, 122}
+#define ORANGE {21, 255, 66}
 //#define VAPOURWAVEPURPLE {129, 0, 204}
-#define MINTBLUE {54, 95, 99}
+#define MINTBLUE {153, 60, 60}
+#define GREENYELLOWCRAYOLA {40, 200, 140}
+#define GRANNYSMITHAPPLE {81, 180, 140}
+#define ORCHIDCRAYOLA {222, 224, 110}
+#define CERISE {244, 230, 90}
+#define PRINCETONORANGE {18 ,212, 128}
 
-#define HOTPINK_HSL {1, 200, 150}
-#define LIMEGREEN_HSL {57, 163, 122}
-#define ORANGE_HSL {21, 255, 66}
-//#define VAPOURWAVEPURPLE {129, 0, 204}
-#define MINTBLUE_HSL {131, 74, 77}
 
 typedef struct HSL_T{
 	uint8_t hue;
